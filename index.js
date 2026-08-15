@@ -1,4 +1,4 @@
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+import { select, confirm } from '@inquirer/prompts';
 
 const triviaQuestions = [
   {
@@ -28,105 +28,95 @@ const triviaQuestions = [
   }
 ];
 
-async function startCountdown() {
-  console.log("\nGet ready!");
-  for (let i = 3; i > 0; i--) {
-    console.log(`${i}...`);
-    await delay(1000); 
-  }
-  console.log("Go!\n");
-}
-
 async function runGame() {
-  const { select, confirm } = await import('@inquirer/prompts');
+  console.clear();
+  console.log("Welcome to the JavaScript Developer Trivia Game!");
+  console.log("\nGet ready!");
+  
+  for (let i = 3; i > 0; i--) {
+    console.log(i + "...");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
 
-  // Define a plain text theme to block all default emojis
-  const plainTheme = {
-    prefix: '>', 
-    icon: { cursor: '→' }
-  };
-
-  await startCountdown();
-
-  const results = [];
-  const TIME_LIMIT_MS = 10000; 
-  let totalGameTime = 0;
+  let score = 0;
+  let missedQuestions = [];
+  let totalTime = 0;
 
   for (let i = 0; i < triviaQuestions.length; i++) {
-    const currentQ = triviaQuestions[i];
+    console.clear();
+    let currentQ = triviaQuestions[i];
 
-    console.log(`\n--- Question ${i + 1} of ${triviaQuestions.length} ---`);
-    console.log(`You have ${TIME_LIMIT_MS / 1000} seconds to answer!`);
+    console.log("--- Question " + (i + 1) + " of " + triviaQuestions.length + " ---");
+    console.log("You have 10 seconds to answer!\n");
 
-    const startTime = Date.now();
+    let choicesArray = [];
+    for (let j = 0; j < currentQ.choices.length; j++) {
+      choicesArray.push({
+        name: currentQ.choices[j],
+        value: currentQ.choices[j]
+      });
+    }
 
-    const formattedChoices = currentQ.choices.map(choice => ({
-      name: choice,
-      value: choice
-    }));
+    let start = Date.now();
 
-    const answer = await select({
+    let answer = await select({
       message: currentQ.question,
-      choices: formattedChoices,
-      theme: plainTheme // Inject plain theme here
+      choices: choicesArray
     });
 
-    const endTime = Date.now();
-    const timeTaken = endTime - startTime;
-    totalGameTime += timeTaken;
-
-    const isTimeUp = timeTaken > TIME_LIMIT_MS;
-    const isCorrect = answer === currentQ.correctAnswer;
-
-    if (isTimeUp) {
-      console.log(`[TIMEOUT] Time's up! You took ${(timeTaken / 1000).toFixed(1)} seconds. (Limit is 10s)`);
-      results.push({ question: currentQ.question, scored: false, reason: "Timeout" });
-    } else if (isCorrect) {
-      console.log("Correct!");
-      results.push({ question: currentQ.question, scored: true, reason: "Correct" });
-    } else {
-      console.log(`X Incorrect! The correct answer was: "${currentQ.correctAnswer}"`);
-      results.push({ question: currentQ.question, scored: false, reason: "Wrong Answer" });
-    }
+    let end = Date.now();
     
-    await delay(1500); 
+    console.clear(); 
+
+    let timeTaken = end - start;
+    totalTime += timeTaken;
+
+    console.log("--- Question " + (i + 1) + " of " + triviaQuestions.length + " ---");
+    console.log("Your answer: " + answer + "\n");
+
+    if (timeTaken > 10000) {
+      console.log("Time's up! You took longer than 10 seconds.");
+      missedQuestions.push(currentQ.question + " (Timeout)");
+    } else if (answer === currentQ.correctAnswer) {
+      console.log("Correct!");
+      score += 10;
+    } else {
+      console.log("Incorrect! The correct answer was: " + currentQ.correctAnswer);
+      missedQuestions.push(currentQ.question + " (Wrong Answer)");
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
-  const finalScore = results.reduce((acc, curr) => {
-    return curr.scored ? acc + 10 : acc; 
-  }, 0);
-
-  const missedQuestions = results.filter(result => result.scored === false);
-
-  console.log("\n" + "=".repeat(30));
-  console.log("        GAME OVER ");
-  console.log("=".repeat(30));
+  console.clear();
+  console.log("------------------------------");
+  console.log("          GAME OVER");
+  console.log("------------------------------");
   
-  const maxScore = triviaQuestions.length * 10;
-  console.log(`Final Score: ${finalScore} / ${maxScore}`);
-  console.log(`Total Play Time: ${(totalGameTime / 1000).toFixed(1)} seconds`);
+  let maxScore = triviaQuestions.length * 10;
+  console.log("Final Score: " + score + " / " + maxScore);
+  console.log("Total Play Time: " + (totalTime / 1000) + " seconds");
 
   if (missedQuestions.length > 0) {
-    console.log("\nHere is what you missed or ran out of time on:");
-    missedQuestions.forEach(q => console.log(`X ${q.question} (Reason: ${q.reason})`));
+    console.log("\nHere is what you missed:");
+    missedQuestions.forEach(function(q) {
+      console.log("- " + q);
+    });
   } else {
     console.log("\nPerfect score! You are a JavaScript master!");
   }
 
-  const playAgain = await confirm({ 
-    message: "\nWould you like to play again?",
-    theme: plainTheme 
+  console.log();
+  let playAgain = await confirm({ 
+    message: "Would you like to play again?"
   });
-  
+
   if (playAgain) {
-    console.clear();
-    await runGame(); 
+    runGame(); 
   } else {
     console.log("Thanks for playing! Goodbye.");
     process.exit(0);
   }
 }
 
-console.clear();
-console.log("Welcome to the JavaScript Developer Trivia Game!");
 runGame();
